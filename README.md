@@ -1,4 +1,4 @@
-# SoaProject
+# SOA-ReferenceMonitor
 ## Project Specification ##
 The examination requires fulfilling the development of a project in the Linux kernel, which must comply with the following specification. Each student should develop the project individually.
 **Kernel Level Reference Monitor for File Protection**
@@ -35,7 +35,13 @@ The the computation of the cryptographic hash and the writing of the above tuple
    sudo sh launch.sh
    ```
 ## Main Features ##
-Once the module is installed, the reference monitor status is set to ON and there are some default blacklisted paths in order to test the application. The main features offered by the reference monitor are:
+Once the module is installed, the reference monitor status is set to ON and there are some default blacklisted paths in order to test the application:
+
+   - ./reference-monitor/user/test/black_test
+   - ./reference-monitor/user/test/files/pippo.txt
+   - ./reference-monitor/user/test/fakedir
+
+The main features offered by the reference monitor are:
  - Set the reference monitor status to ON;
  - Set the reference monitor status to OFF;
  - Set the reference monitor status to REC-ON;
@@ -51,7 +57,8 @@ To execute these operations move to the **./reference-monitor/user** directory a
    ```bash
    sudo make run
    ```
-At the beginning, all these operations require a default user **password** as input. 
+At the beginning, all these operations require a default user **password** as input.
+It's recommended to change the password as soon as possible.
 
 ## Testing ##
 To test the reference monitor, move to the directory **./reference-monitor/user/test** and execute the following commands:
