@@ -244,8 +244,7 @@ reinode:
         	step++;
         	dir_path = get_full_path(dir);
         	if(dir_path != NULL){
-        		memset(path, 0, PATH_MAX);
-        		strcpy(path, dir_path);
+        		path = dir_path;
         	}
         	goto reinode;
         }
