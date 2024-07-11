@@ -290,7 +290,7 @@ reinode:
 						goto reject_do_filp_open;
 					}
 
-					/*blocks symlinks opening avoiding cycles*/
+					/*blocks normal opening avoiding cycles*/
 					if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 						printk("%s: File %s content cannot be modified through symlinks. Operation denied\n",MODNAME, path);
 						goto reject_do_filp_open;
@@ -614,11 +614,14 @@ reject_do_renameat2:
 
 	regs->di = -1;
 	regs->si = (unsigned long)NULL;
-	//regs->dx = -1;
 	
 	return 0;
 }
 
+
+/*
+* Wrapper to deny hardlink creation on blacklisted files. 
+*/
 static int do_linkat_wrapper(struct kprobe *ri, struct pt_regs *regs){
 	
 	//int do_linkat(int olddfd, struct filename *old, int newdfd, struct filename *new, int flags)
@@ -762,7 +765,7 @@ asmlinkage long sys_ref_mon_on(char *password){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to set reference monitor STATUS to ON - PASS:%s\n",MODNAME, password);
+		printk("%s: Asked to set reference monitor STATUS to ON\n",MODNAME);
 	}
 
 	if((input_pass = kmalloc(1024, GFP_KERNEL)) == NULL){
@@ -852,7 +855,7 @@ asmlinkage long sys_ref_mon_off(char *password){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to set reference monitor STATUS to OFF - PASS: %s\n",MODNAME, password);
+		printk("%s: Asked to set reference monitor STATUS to OFF\n",MODNAME);
 	}
 
 	if((input_pass = kmalloc(1024, GFP_KERNEL)) == NULL){
@@ -946,7 +949,7 @@ asmlinkage long sys_ref_mon_rec_on(char *password){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to set reference monitor STATUS to REC-ON - PASS: %s\n",MODNAME, password);
+		printk("%s: Asked to set reference monitor STATUS to REC-ON\n",MODNAME);
 	}
 
 	if((input_pass = kmalloc(1024, GFP_KERNEL)) == NULL){
@@ -1023,7 +1026,7 @@ asmlinkage long sys_ref_mon_rec_on(char *password){
 
 /*
 * This syscall takes in input the password and set the reference monitor to rec-off.
-* Probes are enabled and accesses to files/directories are not anymore intercepted.
+* Probes are disabled and accesses to files/directories are not anymore intercepted.
 * It's moreover possible to reconfigure the blacklisted paths. 
 * In particular, it's possible to remove/add paths from/to the blacklist. 
 */
@@ -1038,7 +1041,7 @@ asmlinkage long sys_ref_mon_rec_off(char *password){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to set reference monitor STATUS to REC-OFF Password %s\n",MODNAME, password);
+		printk("%s: Asked to set reference monitor STATUS to REC-OFF\n",MODNAME);
 	}
 
 	if((input_pass = kmalloc(1024, GFP_KERNEL)) == NULL){
@@ -1254,7 +1257,7 @@ asmlinkage long sys_ref_mon_rm_path(char *path, char *password){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to REMOVE path [%s] from the BLACKLIST %s\n",MODNAME, path, password);
+		printk("%s: Asked to REMOVE path [%s] from the BLACKLIST\n",MODNAME, path);
 	}
 
 	if((input_path = kmalloc(1024, GFP_KERNEL)) == NULL){
@@ -1361,7 +1364,7 @@ asmlinkage long sys_ref_mon_change_pass(char *new_pass, char *old_pass){
 
 	AUDIT{
 		printk("%s: ------------------------------\n",MODNAME);
-		printk("%s: Asked to CHANGE the PASSWORD - NEW PASS: %s - OLD PASS: %s\n",MODNAME, new_pass, old_pass);
+		printk("%s: Asked to CHANGE the PASSWORD\n",MODNAME);
 	}
 
 	if((input_old_pass = kmalloc(1024, GFP_KERNEL)) == NULL){
