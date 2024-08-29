@@ -10,7 +10,7 @@
 * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 * 
 * @brief This is a simple Linux Kernel Module which implements
-*	 a mandatory policy for the {do_filp_open, do_unlinkat, do_mkdirat, do_rmdir} services, 
+*	 a mandatory policy for specific services, 
 * 	 closing it to all the users of the system (including root user) for a 
 *	 black list of files/directories paths.
 *
@@ -254,6 +254,8 @@ reinode:
 
     inode_number = inode->i_ino;
 
+    spin_lock(&ref_monitor.lock);
+
     if(inode->i_nlink > 1){
 
     	/* handling of links */
@@ -268,6 +270,7 @@ reinode:
 
 		    	if(path_to_check  == NULL){
 		    		printk(KERN_INFO "Path to check null\n");
+		    		spin_unlock(&ref_monitor.lock);
         			return 0;
 		    	}
 		    	printk("%s: path_to_check is %s", MODNAME, path_to_check);
@@ -278,6 +281,7 @@ reinode:
 					/*blocks directly opening of hardlinks already created on blacklisted files*/
 					if(inode_number == get_inode_number(ref_monitor.path[i])){
 						printk("%s: File %s (path_to_check is %s) content cannot be modified through direct hardlinks. Operation denied\n",MODNAME, path, path_to_check);
+						spin_unlock(&ref_monitor.lock);
 						goto reject_do_filp_open;
 					}
 
@@ -286,12 +290,14 @@ reinode:
 					  and cp with a blacklisted directory (or sub) as destination*/
 					if(strstr(path_to_check, ref_monitor.path[i]) != NULL && strncmp(path_to_check, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 						printk("%s: File %s (path_to_check is %s) content cannot be modified. Operation denied\n",MODNAME, path, path_to_check);
+						spin_unlock(&ref_monitor.lock);
 						goto reject_do_filp_open;
 					}
 
 					/*blocks normal opening avoiding cycles*/
 					if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 						printk("%s: File %s content cannot be modified through symlinks. Operation denied\n",MODNAME, path);
+						spin_unlock(&ref_monitor.lock);
 						goto reject_do_filp_open;
 					}
 
@@ -306,12 +312,15 @@ reinode:
 			/*blocks normal file openings and copying out blacklisted files or files in blacklisted directories*/
 			if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){	
 				printk("%s: File %s content cannot be modified. Operation denied\n",MODNAME, path);
+				spin_unlock(&ref_monitor.lock);
 				goto reject_do_filp_open;
 			}
 
 		}
 
 	}
+
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
@@ -372,14 +381,19 @@ static int do_mkdirat_wrapper(struct kprobe *ri, struct pt_regs *regs){
 	}
 
 	printk("%s: Directory %s creation in %s directory occurred\n",MODNAME, path, dir);
+
+	spin_lock(&ref_monitor.lock);
 	
 	for(i=0; i<ref_monitor.list_size; i++){
 		/*blocks mkdir and dir cp (cp -r) on blacklisted directories */
 		if(strstr(dir, ref_monitor.path[i]) != NULL && strncmp(dir, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: Directory %s content cannot be created. Operation denied\n",MODNAME, dir);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_mkdirat;
 		}
 	}
+
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
@@ -439,14 +453,17 @@ static int do_rmdir_wrapper(struct kprobe *ri, struct pt_regs *regs){
 	}
 
 	printk("%s: Directory %s deletion in %s directory occurred\n",MODNAME, path, dir);
+	spin_lock(&ref_monitor.lock);
 
 	for(i=0; i<ref_monitor.list_size; i++){
 
 		if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: Directory %s cannot be removed. Operation denied\n",MODNAME, path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_rmdir;
 		}
 	}
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
@@ -503,13 +520,16 @@ static int do_unlinkat_wrapper(struct kprobe *ri, struct pt_regs *regs){
 
 	printk("%s: File %s deletion in %s directory occurred\n",MODNAME, path, dir);
 	
+	spin_lock(&ref_monitor.lock);
 	for(i=0; i<ref_monitor.list_size ; i++){
 
 		if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: File %s content cannot be removed. Remove operation denied.\n",MODNAME, path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_unlinkat;
 		}
 	}
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
@@ -580,18 +600,22 @@ static int do_renameat2_wrapper(struct kprobe *ri, struct pt_regs *regs){
 
 	printk("%s: Move %s intercepted in %s directory occurred with directory %s as destination\n",MODNAME, f_path, f_dir, dest_path);
 	
+	spin_lock(&ref_monitor.lock);
 	for(i=0; i<ref_monitor.list_size ; i++){
 
 		if(strstr(dest_path, ref_monitor.path[i]) != NULL && strncmp(dest_path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: Directory %s content cannot be added. Move operation for file %s denied\n",MODNAME, dest_path, f_path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_renameat2;
 		}
 
 		if(strstr(f_path, ref_monitor.path[i]) != NULL && strncmp(f_path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: File %s content cannot be moved. Move operation denied.\n",MODNAME, f_path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_renameat2;
 		}
 	}
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
@@ -664,19 +688,23 @@ static int do_linkat_wrapper(struct kprobe *ri, struct pt_regs *regs){
 
 	printk("%s: Hardlink of file %s intercepted in %s directory occurred with file %s as destination\n",MODNAME, o_path, o_dir, dest_path);
 	
+	spin_lock(&ref_monitor.lock);
 	for(i=0; i<ref_monitor.list_size ; i++){
 
 		if(strstr(dest_path, ref_monitor.path[i]) != NULL && strncmp(dest_path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: File/Directory %s content cannot be linked. Link operation for file/directory %s denied\n",MODNAME, dest_path, o_path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_linkat;
 		}
 
 		if(strstr(o_path, ref_monitor.path[i]) != NULL && strncmp(o_path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
 			printk("%s: File %s content cannot be linked. Link operation denied.\n",MODNAME, o_path);
+			spin_unlock(&ref_monitor.lock);
 			goto reject_do_linkat;
 		}
 
 	}
+	spin_unlock(&ref_monitor.lock);
 
 	return 0;
 
