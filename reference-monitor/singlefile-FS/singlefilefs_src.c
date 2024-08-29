@@ -7,8 +7,13 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/mutex.h>
 
+
+#define DEF_LOCK
 #include "singlefilefs.h"
+
+struct mutex mutex;
 
 
 
@@ -122,6 +127,8 @@ static int singlefilefs_init(void) {
     else
         printk("%s: failed to register singlefilefs - error %d", MOD_NAME,ret);
 
+    mutex_init(&mutex);
+
     return ret;
 }
 
@@ -136,6 +143,8 @@ static void singlefilefs_exit(void) {
         printk("%s: sucessfully unregistered file system driver\n",MOD_NAME);
     else
         printk("%s: failed to unregister singlefilefs driver - error %d", MOD_NAME, ret);
+
+    mutex_destroy(&mutex);
 }
 
 module_init(singlefilefs_init);

@@ -9,6 +9,7 @@
 #include <linux/string.h>
 #include <linux/uio.h>
 
+#define DEF_LOCK
 #include "singlefilefs.h"
 
 uint64_t file_size;
@@ -26,13 +27,13 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
     printk("%s: read operation called with len %ld - and offset %lld (the current file size is %lld)",MOD_NAME, len, *off, file_size);
 
-    //this operation is not synchronized 
-    //*off can be changed concurrently 
-    //add synchronization if you need it for any reason
+    mutex_lock(&mutex);
 
     //check that *off is within boundaries
-    if (*off >= file_size)
+    if (*off >= file_size){
+        mutex_unlock(&mutex);
         return 0;
+    }
     else if (*off + len > file_size)
         len = file_size - *off;
 
@@ -49,27 +50,36 @@ ssize_t onefilefs_read(struct file * filp, char __user * buf, size_t len, loff_t
 
     bh = (struct buffer_head *)sb_bread(filp->f_path.dentry->d_inode->i_sb, block_to_read);
     if(!bh){
+       mutex_unlock(&mutex);
 	   return -EIO;
     }
     ret = copy_to_user(buf,bh->b_data + offset, len);
     *off += (len - ret);
     brelse(bh);
 
+    mutex_unlock(&mutex);
     return len - ret;
 
 }
 
 ssize_t onefilefs_write_iter(struct kiocb *iocb, struct iov_iter *from){
-    
-    struct file *filp = iocb->ki_filp;
-    char *buffer= from->kvec->iov_base;
-    size_t len = from->kvec->iov_len;
  
     int block_to_read;//index of the block to be read from device
     loff_t offset;
     loff_t off;
+    struct file *filp;
+    char *buffer;
+    size_t len;
+    struct inode * the_inode;
     struct buffer_head *bh = NULL;
-    struct inode * the_inode = filp->f_inode;
+
+    
+    mutex_lock(&mutex);
+
+    filp = iocb->ki_filp;
+    buffer = from->kvec->iov_base;
+    len = from->kvec->iov_len;
+    the_inode = filp->f_inode;
     i_size_write(the_inode, file_size);
     off = i_size_read(the_inode);
 
@@ -88,6 +98,7 @@ ssize_t onefilefs_write_iter(struct kiocb *iocb, struct iov_iter *from){
 
     bh = (struct buffer_head *)sb_bread(filp->f_path.dentry->d_inode->i_sb, block_to_read);
     if(!bh){
+        mutex_unlock(&mutex);
         return -EIO;
     }
     memcpy(bh->b_data + offset, buffer, len);
@@ -96,6 +107,8 @@ ssize_t onefilefs_write_iter(struct kiocb *iocb, struct iov_iter *from){
     file_size = off; 
     i_size_write(the_inode, off);
     brelse(bh);
+
+    mutex_unlock(&mutex);
   
     return len;
 }

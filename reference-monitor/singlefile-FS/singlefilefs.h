@@ -59,4 +59,8 @@ extern const struct file_operations onefilefs_file_operations;
 // dir.c
 extern const struct file_operations onefilefs_dir_operations;
 
+#ifdef DEF_LOCK
+extern struct mutex mutex;
+#endif
+
 #endif

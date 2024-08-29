@@ -41,20 +41,22 @@ int main(int argc, char** argv){
 reinsert_on:
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 				if((ret = on(password)) < 0){
-					printf("Operation aborted, please retry...\n");
+					printf("\nOperation aborted, please retry...\n");
 					fflush(stdout);
 					flush(stdin);
 					free(password);
 					goto reinsert_on;
 				}	
 
-				printf("Reference STATUS set to ON correctly...\n");
+				printf("\nReference STATUS set to ON correctly...\n");
 				fflush(stdout);
 				flush(stdin);
 				free(password);
@@ -66,21 +68,23 @@ reinsert_on:
 reinsert_off:
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
 				if((ret = off(password)) < 0){
-					printf("Operation aborted, please retry...\n");
+					printf("\nOperation aborted, please retry...\n");
 					fflush(stdout);
 					flush(stdin);
 					free(password);
 					goto reinsert_off;
 				}		
 
-				printf("Reference STATUS set to OFF correctly...\n");
+				printf("\nReference STATUS set to OFF correctly...\n");
 				fflush(stdout);
 				flush(stdin);
 				free(password);
@@ -91,21 +95,23 @@ reinsert_off:
 reinsert_recon:			
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
 				if((ret = rec_on(password)) < 0){
-					printf("Operation aborted, please retry...\n");
+					printf("\nOperation aborted, please retry...\n");
 					fflush(stdout);
 					flush(stdin);
 					free(password);
 					goto reinsert_recon;
 				}		
 
-				printf("Reference STATUS set to REC-ON correctly...\n");
+				printf("\nReference STATUS set to REC-ON correctly...\n");
 				fflush(stdout);
 				flush(stdin);
 				free(password);
@@ -117,21 +123,23 @@ reinsert_recon:
 reinsert_recoff:
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
 				if((ret = rec_off(password)) < 0){
-					printf("Operation aborted, please retry...\n");
+					printf("\nOperation aborted, please retry...\n");
 					fflush(stdout);
 					flush(stdin);
 					free(password);
 					goto reinsert_recoff;
 				}		
 
-				printf("Reference STATUS set to REC-OFF correctly...\n");
+				printf("\nReference STATUS set to REC-OFF correctly...\n");
 				fflush(stdout);
 				flush(stdin);
 				free(password);
@@ -143,13 +151,15 @@ reinsert_recoff:
 reinsert_addpath:			
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
-				printf("Please insert the path: ");
+				printf("\nPlease insert the path: ");
 
 				ret = scanf("%ms", &path);
 				if(ret < 0){
@@ -192,13 +202,15 @@ exit_add:
 reinsert_rmpath:			
 				printf("Please insert the password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
-				printf("Please insert the path: ");
+				printf("\nPlease insert the path: ");
 
 				ret = scanf("%ms", &path);
 				if(ret < 0){
@@ -241,22 +253,25 @@ exit_rm:
 reinsert_changepass:			
 				printf("Please insert the old password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &password);
 				if(ret < 0){
-					printf("scanf error\n");
+					printf("\nscanf error\n");
 					return -1;
 				}
+				show_input_mode();
 
-				printf("Please insert the new password: ");
+				printf("\nPlease insert the new password: ");
 
+				hide_input_mode();
 				ret = scanf("%ms", &newpassword);
 				if(ret < 0){
 					printf("scanf error\n");
 					return -1;
 				}
-				//on("password");
+				show_input_mode();
 				if((ret = change_password(newpassword, password)) < 0){
-					printf("Operation aborted, please retry...\n");
+					printf("\nOperation aborted, please retry...\n");
 					fflush(stdout);
 					flush(stdin);
 					free(password);
@@ -264,7 +279,7 @@ reinsert_changepass:
 					goto reinsert_changepass;
 				}		
 
-				printf("Password UPDATED correctly...\n");
+				printf("\nPassword UPDATED correctly...\n");
 				fflush(stdout);
 				flush(stdin);
 				free(password);

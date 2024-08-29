@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <termios.h>
 
 #define LIBNAME "UTILSLIB"
 
@@ -112,6 +113,20 @@ char *getInput(unsigned int lung, char *stringa, bool hide)
 // Per la gestione dei segnali
 static void handler(int s) {
 	signo = s;
+}
+
+void hide_input_mode() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t); // Ottieni i flag correnti del terminale
+    t.c_lflag &= ~ECHO;          // Disabilita l'eco dei caratteri digitati
+    tcsetattr(STDIN_FILENO, TCSANOW, &t); // Applica le modifiche
+}
+
+void show_input_mode() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t); // Ottieni i flag correnti del terminale
+    t.c_lflag |= ECHO;           // Abilita l'eco dei caratteri digitati
+    tcsetattr(STDIN_FILENO, TCSANOW, &t); // Applica le modifiche
 }
 
 char multiChoice(char *domanda, char choices[], int num)
