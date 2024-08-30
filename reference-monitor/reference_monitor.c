@@ -312,7 +312,7 @@ static int do_filp_open_wrapper(struct kprobe *ri, struct pt_regs *regs){
 
 			/*blocks copy file in blacklisted directories*/
 			if(strstr(dir, ref_monitor.path[i]) != NULL && strncmp(dir, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){	
-				printk("%s: File %s content cannot be modified. Operation denied\n",MODNAME, dir);
+				printk("%s: Files in blacklisted directory %s cannot be copied. Operation denied\n",MODNAME, dir);
 				spin_unlock(&ref_monitor.lock);
 				goto reject_do_filp_open;
 			}
