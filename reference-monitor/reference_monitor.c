@@ -168,12 +168,11 @@ static int do_filp_open_wrapper(struct kprobe *ri, struct pt_regs *regs){
 	packed_work *the_task;
 
 	char *path;
-	char *dir_path = NULL;
 	char *cmd_path;
+	char *parent_dir;
 	char *dir;
 	char *path_to_check = NULL;
 	int is_cp = 0;
-	int step = 0;
 	unsigned long inode_number;
 	struct inode *inode;
 	struct dentry *dentry;
@@ -227,97 +226,98 @@ static int do_filp_open_wrapper(struct kprobe *ri, struct pt_regs *regs){
 		return 0;
 	}
 	
-	dir = search_directory(path);
+	parent_dir = search_directory(path);
+	dir = get_full_path(parent_dir);
 	if(strcmp(dir, "") == 0) dir = search_curdir();
 		
 	printk("%s: File (with flags %d) %s opening in %s directory occurred by %s\n",MODNAME, flags, path, dir, current->comm);
 
-reinode:	
-	inode = get_inode(path);
+    inode = get_inode(path);
     if (inode == NULL) {
         printk(KERN_INFO "Inode non valido\n");
-        if(is_cp && (dir_path == NULL)){
-        	if(step != 0){
-   				printk("%s: returning..",MODNAME);
-        		return 0;
-        	}
-        	step++;
-        	dir_path = get_full_path(dir);
-        	if(dir_path != NULL){
-        		path = dir_path;
-        	}
-        	goto reinode;
-        }
-
-        return 0;
     }
 
-    inode_number = inode->i_ino;
 
     spin_lock(&ref_monitor.lock);
 
-    if(inode->i_nlink > 1){
+    if(inode){
 
-    	/* handling of links */
-    	dentry_head = &inode->i_dentry;
+    	inode_number = inode->i_ino;
 
-    	if(dentry_head){
-		    hlist_for_each_entry_rcu(dentry, dentry_head, d_u.d_alias) {
+	    if(inode->i_nlink > 1){
 
-		        if(dentry && dentry->d_inode){
-		        	path_to_check = get_path_from_dentry(dentry);
-		        }
+	    	/* handling of links */
+	    	dentry_head = &inode->i_dentry;
 
-		    	if(path_to_check  == NULL){
-		    		printk(KERN_INFO "Path to check null\n");
-		    		spin_unlock(&ref_monitor.lock);
-        			return 0;
-		    	}
-		    	printk("%s: path_to_check is %s", MODNAME, path_to_check);
-			
+	    	if(dentry_head){
+			    hlist_for_each_entry_rcu(dentry, dentry_head, d_u.d_alias) {
 
-				for(i=0; i<ref_monitor.list_size ; i++){
+			        if(dentry && dentry->d_inode){
+			        	path_to_check = get_path_from_dentry(dentry);
+			        }
 
-					/*blocks directly opening of hardlinks already created on blacklisted files*/
-					if(inode_number == get_inode_number(ref_monitor.path[i])){
-						printk("%s: File %s (path_to_check is %s) content cannot be modified through direct hardlinks. Operation denied\n",MODNAME, path, path_to_check);
-						spin_unlock(&ref_monitor.lock);
-						goto reject_do_filp_open;
-					}
+			    	if(path_to_check  == NULL){
+			    		printk(KERN_INFO "Path to check null\n");
+			    		spin_unlock(&ref_monitor.lock);
+	        			return 0;
+			    	}
+			    	printk("%s: path_to_check is %s", MODNAME, path_to_check);
+				
 
-					/*blocks directly opening of hardlinks already created on blacklisted files
-					  working also with hardlinks to file in blacklisted directories
-					  and cp with a blacklisted directory (or sub) as destination*/
-					if(strstr(path_to_check, ref_monitor.path[i]) != NULL && strncmp(path_to_check, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
-						printk("%s: File %s (path_to_check is %s) content cannot be modified. Operation denied\n",MODNAME, path, path_to_check);
-						spin_unlock(&ref_monitor.lock);
-						goto reject_do_filp_open;
-					}
+					for(i=0; i<ref_monitor.list_size ; i++){
 
-					/*blocks normal opening avoiding cycles*/
-					if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
-						printk("%s: File %s content cannot be modified through symlinks. Operation denied\n",MODNAME, path);
-						spin_unlock(&ref_monitor.lock);
-						goto reject_do_filp_open;
+						/*blocks directly opening of hardlinks already created on blacklisted files*/
+						if(inode_number == get_inode_number(ref_monitor.path[i])){
+							printk("%s: File %s (path_to_check is %s) content cannot be modified through direct hardlinks. Operation denied\n",MODNAME, path, path_to_check);
+							spin_unlock(&ref_monitor.lock);
+							goto reject_do_filp_open;
+						}
+
+						/*blocks directly opening of hardlinks already created on blacklisted files
+						  working also with hardlinks to file in blacklisted directories
+						  and cp with a blacklisted directory (or sub) as destination*/
+						if(strstr(path_to_check, ref_monitor.path[i]) != NULL && strncmp(path_to_check, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
+							printk("%s: File %s (path_to_check is %s) content cannot be modified. Operation denied\n",MODNAME, path, path_to_check);
+							spin_unlock(&ref_monitor.lock);
+							goto reject_do_filp_open;
+						}
+
+						/*blocks normal opening avoiding cycles*/
+						if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){
+							printk("%s: File %s content cannot be modified through symlinks. Operation denied\n",MODNAME, path);
+							spin_unlock(&ref_monitor.lock);
+							goto reject_do_filp_open;
+						}
+
 					}
 
 				}
+			}	
+
+		}else{
+			for(i=0; i<ref_monitor.list_size ; i++){
+
+				/*blocks normal file openings and copying out blacklisted files or files in blacklisted directories*/
+				if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){	
+					printk("%s: File %s content cannot be modified. Operation denied\n",MODNAME, path);
+					spin_unlock(&ref_monitor.lock);
+					goto reject_do_filp_open;
+				}
 
 			}
-		}	
 
+		}
 	}else{
 		for(i=0; i<ref_monitor.list_size ; i++){
 
-			/*blocks normal file openings and copying out blacklisted files or files in blacklisted directories*/
-			if(strstr(path, ref_monitor.path[i]) != NULL && strncmp(path, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){	
-				printk("%s: File %s content cannot be modified. Operation denied\n",MODNAME, path);
+			/*blocks copy file in blacklisted directories*/
+			if(strstr(dir, ref_monitor.path[i]) != NULL && strncmp(dir, ref_monitor.path[i], strlen(ref_monitor.path[i])) == 0){	
+				printk("%s: File %s content cannot be modified. Operation denied\n",MODNAME, dir);
 				spin_unlock(&ref_monitor.lock);
 				goto reject_do_filp_open;
 			}
 
 		}
-
 	}
 
 	spin_unlock(&ref_monitor.lock);
